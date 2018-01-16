@@ -1,0 +1,34 @@
+from __future__ import print_function
+
+import findspark
+findspark.init()
+
+from pyspark.conf import SparkConf
+from pyspark.sql import SparkSession
+from pyspark.sql import Row
+
+# Create a SparkSession
+spark = SparkSession.builder.config(conf=SparkConf()).appName("Teenagers").getOrCreate()
+
+def mapper(line):
+    fields = line.split(',')
+    return Row(name = fields[0], age = int(fields[1]))
+
+lines = spark.sparkContext.textFile("/home/edupy/Desktop/Datasets/people.txt")
+people = lines.map(mapper)
+
+# Infer the schema, and register the DataFrame as a table.
+schemaPeople = spark.createDataFrame(people).cache()
+schemaPeople.createOrReplaceTempView("people")
+
+# SQL can be run over DataFrames that have been registered as a table.
+teenagers = spark.sql("SELECT * FROM people WHERE age >= 13 AND age <= 19")
+
+# The results of SQL queries are RDDs and support all the normal RDD operations.
+for teen in teenagers.collect():
+  print(teen)
+
+# We can also use functions instead of SQL queries:
+schemaPeople.groupBy("age").count().orderBy("age").show()
+
+spark.stop()
